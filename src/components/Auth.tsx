@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Mail, Phone } from 'lucide-react';
 import { Auth as SupabaseAuth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { useAuthStore } from '../stores/authStore';
 import { SocialAuth } from './SocialAuth';
+import { PhoneAuth } from './PhoneAuth';
 
 interface AuthProps {
   onAuthSuccess?: () => void;
@@ -17,6 +18,7 @@ export function Auth({ onAuthSuccess, onGuestCheckout }: AuthProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signIn, initialize } = useAuthStore();
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -203,7 +205,43 @@ export function Auth({ onAuthSuccess, onGuestCheckout }: AuthProps) {
           </p>
         </div>
 
-        {confirmationSent ? (
+        {/* Toggle para método de autenticación */}
+        <div className="flex justify-center">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setAuthMethod('email')}
+              className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                authMethod === 'email'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Email
+            </button>
+            <button
+              onClick={() => setAuthMethod('phone')}
+              className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                authMethod === 'phone'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Phone className="h-4 w-4 mr-2" />
+              Teléfono
+            </button>
+          </div>
+        </div>
+
+        {/* Mostrar componente según método seleccionado */}
+        {authMethod === 'phone' ? (
+          <PhoneAuth 
+            onAuthSuccess={onAuthSuccess}
+            onBackToEmail={() => setAuthMethod('email')}
+          />
+        ) : (
+          <>
+            {confirmationSent ? (
           <div className="text-center">
             <div className="bg-green-50 p-4 rounded-md">
               <h3 className="text-lg font-medium text-green-800">Revisa tu correo</h3>
@@ -327,6 +365,8 @@ export function Auth({ onAuthSuccess, onGuestCheckout }: AuthProps) {
               </div>
             </form>
           </>
+        )}
+        </>
         )}
       </div>
     </div>

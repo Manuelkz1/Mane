@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { ShoppingBag, User, LogOut, ShoppingCart, Package, Clock } from 'lucide-react';
+import { ShoppingBag, User, LogOut, ShoppingCart, Package, Clock, Heart } from 'lucide-react';
 import { useCartStore } from '../stores/cartStore';
+import { useFavoritesStore } from '../stores/favoritesStore';
 import { ProductGrid } from './ProductGrid';
 import { Cart } from './Cart';
 import { useCompanySettings } from '../hooks/useCompanySettings';
@@ -12,13 +13,28 @@ import { HomeReviews } from './HomeReviews';
 export default function Home() {
   const { user, signOut } = useAuthStore();
   const cartStore = useCartStore();
+  const favoritesStore = useFavoritesStore();
   const navigate = useNavigate();
   const { settings } = useCompanySettings();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  useEffect(() => {
+    if (user && !favoritesStore.isInitialized) {
+      favoritesStore.loadFavorites(user.id);
+    }
+  }, [user]);
+
   const handleOrdersClick = () => {
     if (user) {
       navigate('/my-orders');
+    } else {
+      setShowAuthModal(true);
+    }
+  };
+
+  const handleFavoritesClick = () => {
+    if (user) {
+      navigate('/my-favorites');
     } else {
       setShowAuthModal(true);
     }
@@ -60,6 +76,21 @@ export default function Home() {
               >
                 <Clock className="h-6 w-6 sm:mr-2" />
                 <span className="hidden sm:inline">Mis Pedidos</span>
+              </button>
+
+              {/* Botón Favoritos */}
+              <button
+                onClick={handleFavoritesClick}
+                className="flex items-center justify-center text-gray-700 hover:text-red-600 relative transition-colors p-2"
+                aria-label="Mis favoritos"
+              >
+                <Heart className="h-6 w-6" />
+                <span className="hidden sm:inline sm:ml-2">Favoritos</span>
+                {user && favoritesStore.getFavoriteCount() > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    {favoritesStore.getFavoriteCount()}
+                  </span>
+                )}
               </button>
 
               {/* Carrito */}
@@ -104,13 +135,27 @@ export default function Home() {
                         Gestionar Pedidos
                       </button>
                     ) : (
-                      <button
-                        onClick={handleOrdersClick}
-                        className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-indigo-600 w-full"
-                      >
-                        <Clock className="h-5 w-5 mr-2" />
-                        Mis Pedidos
-                      </button>
+                      <>
+                        <button
+                          onClick={handleOrdersClick}
+                          className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-indigo-600 w-full"
+                        >
+                          <Clock className="h-5 w-5 mr-2" />
+                          Mis Pedidos
+                        </button>
+                        <button
+                          onClick={handleFavoritesClick}
+                          className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-red-600 w-full"
+                        >
+                          <Heart className="h-5 w-5 mr-2" />
+                          Mis Favoritos
+                          {favoritesStore.getFavoriteCount() > 0 && (
+                            <span className="ml-auto bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-semibold">
+                              {favoritesStore.getFavoriteCount()}
+                            </span>
+                          )}
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={() => signOut()}

@@ -8,7 +8,7 @@ export interface Product {
   category: string;
   created_at: string;
   updated_at: string;
-  shipping_days?: number; // Días que tarda en llegar el producto
+  shipping_days?: string; // Días hábiles de envío (ej: "10", "10-15", "5-7")
   instructions_file?: string;
   available_colors?: string[];
   color_images?: {
@@ -88,11 +88,14 @@ export interface Review {
 export interface User {
   id: string;
   email: string;
+  phone?: string;
   full_name: string;
   role: 'customer' | 'admin' | 'fulfillment' | 'dropshipping';
   created_at?: string;
   updated_at?: string;
   email_confirmed?: boolean;
+  phone_verified?: boolean;
+  auth_method?: 'email' | 'phone' | 'social';
   last_sign_in?: string;
 }
 

@@ -25,15 +25,15 @@ const TWILIO_WHATSAPP_NUMBER = '+14155238886';
 
 let twilioClient;
 try {
-  const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-  const authToken = Deno.env.get('TWILIO_AUTH_TOKEN');
+  const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') || 'ACb9b0a238416a8748de4fa57aa971cb73';
+  const authToken = Deno.env.get('TWILIO_AUTH_TOKEN') || '12e2361e40995b277b11dc49762420ac';
   
   if (!accountSid || !authToken) {
     throw new Error('Missing Twilio credentials');
   }
   
   twilioClient = twilio(accountSid, authToken);
-  console.log('Twilio client initialized successfully');
+  console.log('Twilio client initialized successfully with updated credentials');
 } catch (error) {
   console.error('Error initializing Twilio client:', error);
   throw error;

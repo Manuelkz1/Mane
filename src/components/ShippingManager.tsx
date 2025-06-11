@@ -80,7 +80,7 @@ export function ShippingManager() {
 
   const startEditingShippingDays = (product: Product) => {
     setEditingShippingDays(product.id);
-    setShippingDaysValue(product.shipping_days?.toString() || '');
+    setShippingDaysValue(product.shipping_days || '');
   };
 
   const saveShippingDays = async (productId: string) => {
@@ -99,11 +99,11 @@ export function ShippingManager() {
           : p
       ));
       
-      toast.success('Días de envío actualizados');
+      toast.success('Días hábiles de envío actualizados');
       setEditingShippingDays(null);
     } catch (error) {
       console.error('Error updating shipping days:', error);
-      toast.error('Error al actualizar los días de envío');
+      toast.error('Error al actualizar los días hábiles de envío');
     }
   };
 
@@ -205,10 +205,10 @@ export function ShippingManager() {
             </div>
             <div className="ml-3">
               <p className="text-sm text-blue-700 font-medium">
-                Configuración de días de envío
+                Configuración de días hábiles de envío
               </p>
               <p className="text-sm text-blue-700 mt-1">
-                Aquí puedes configurar los días estimados de envío para cada producto. Esta información se mostrará a los clientes en la página del producto.
+                Aquí puedes configurar los días hábiles de envío para cada producto. Puedes usar rangos como "10-15" o números específicos como "7". Esta información se mostrará a los clientes.
               </p>
             </div>
           </div>
@@ -276,7 +276,7 @@ export function ShippingManager() {
                     ) : (
                       <div className="flex items-center">
                         <span className="text-sm text-gray-900">
-                          {product.shipping_days ? `${product.shipping_days} días` : 'No especificado'}
+                          {product.shipping_days ? `${product.shipping_days} días hábiles` : 'No especificado'}
                         </span>
                       </div>
                     )}

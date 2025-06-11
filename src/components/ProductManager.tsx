@@ -36,13 +36,8 @@ export function ProductManager() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
-    // Handle shipping_days as a number
-    if (name === 'shipping_days') {
-      const numValue = value === '' ? null : parseInt(value, 10);
-      setCurrentProduct({ ...currentProduct, [name]: numValue });
-    } else {
-      setCurrentProduct({ ...currentProduct, [name]: value });
-    }
+    // Handle shipping_days as text to allow ranges like "10-15"
+    setCurrentProduct({ ...currentProduct, [name]: value });
   };
 
   const handleAddProduct = () => {
@@ -207,22 +202,21 @@ export function ProductManager() {
 
               <div>
                 <label htmlFor="shipping_days" className="block text-sm font-medium text-gray-700 mb-1">
-                  Días de Envío
+                  Días Hábiles de Envío
                 </label>
                 <div className="flex items-center">
                   <input
-                    type="number"
+                    type="text"
                     id="shipping_days"
                     name="shipping_days"
                     value={currentProduct.shipping_days || ''}
                     onChange={handleInputChange}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    min="0"
-                    placeholder="Ej: 3"
+                    placeholder="Ej: 10, 10-15, 5-7"
                   />
                   <Truck className="h-5 w-5 ml-2 text-indigo-600" />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Tiempo estimado de entrega en días</p>
+                <p className="mt-1 text-xs text-gray-500">Tiempo estimado de entrega en días hábiles (puedes usar rangos como "10-15")</p>
               </div>
             </div>
 
@@ -308,7 +302,7 @@ export function ProductManager() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {product.shipping_days ? `${product.shipping_days} días` : 'No especificado'}
+                      {product.shipping_days ? `${product.shipping_days} días hábiles` : 'No especificado'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
