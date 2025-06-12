@@ -13,8 +13,7 @@ import {
   CreditCard,
   AlertTriangle,
   ExternalLink,
-  X,
-  CheckCircle
+  X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -182,41 +181,18 @@ export default function PendingPaymentsPage() {
             className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
-            Volver a Pedidos Completados
+            Volver a Mis Pedidos
           </Link>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6 text-orange-500" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Pagos Pendientes</h1>
-                <p className="text-gray-600">
-                  Completa estos pagos para procesar tus pedidos
-                </p>
-              </div>
-            </div>
-            
-            {/* Navigation to Completed Orders */}
-            <Link
-              to="/my-orders"
-              className="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <div className="text-left">
-                  <div className="font-medium text-green-800">
-                    Pedidos Completados
-                  </div>
-                  <div className="text-sm text-green-700">
-                    Ver pedidos exitosos
-                  </div>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-green-600" />
-            </Link>
+          <div className="flex items-center gap-3 mb-2">
+            <Clock className="w-6 h-6 text-orange-500" />
+            <h1 className="text-2xl font-bold text-gray-900">Pagos Pendientes</h1>
           </div>
+          <p className="text-gray-600">
+            Aquí puedes completar o cancelar los pagos que no se finalizaron
+          </p>
         </div>
 
         {/* Pending Orders List */}
@@ -229,22 +205,13 @@ export default function PendingPaymentsPage() {
             <p className="text-gray-500 mb-6">
               Todos tus pedidos han sido procesados correctamente
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                to="/my-orders"
-                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Ver Pedidos Completados
-              </Link>
-              <Link
-                to="/"
-                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Seguir Comprando
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Link>
-            </div>
+            <Link
+              to="/my-orders"
+              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Ver Mis Pedidos
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Link>
           </div>
         ) : (
           <div className="space-y-4">

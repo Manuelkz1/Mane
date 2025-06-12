@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { ShoppingCart, Search, Filter, X, Tag, Star, Truck, Heart } from 'lucide-react';
@@ -15,6 +15,7 @@ interface ProductWithRating extends Product {
 }
 
 export function ProductGrid() {
+  const navigate = useNavigate();
   const cartStore = useCartStore();
   const favoritesStore = useFavoritesStore();
   const { user } = useAuthStore();
@@ -187,14 +188,14 @@ export function ProductGrid() {
 
   const handleBuyNow = (product: Product, event: React.MouseEvent) => {
     event.preventDefault();
-    window.location.href = `/product/${product.id}`;
+    navigate(`/product/${product.id}`);
   };
 
   // Función para navegar a las reseñas del producto
   const handleViewReviews = (productId: string, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    window.location.href = `/product/${productId}#reviews`;
+    navigate(`/product/${productId}#reviews`);
   };
 
   // Función para manejar favoritos
@@ -282,7 +283,7 @@ export function ProductGrid() {
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
-            className={`h-3 w-3 sm:h-4 sm:w-4 ${
+            className={`h-4 w-4 ${
               star <= Math.round(rating)
                 ? 'text-yellow-400'
                 : 'text-gray-300'
@@ -296,12 +297,12 @@ export function ProductGrid() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 p-3 sm:p-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="bg-white p-3 sm:p-4 rounded-lg shadow animate-pulse">
-            <div className="h-32 sm:h-48 bg-gray-200 rounded-md mb-3 sm:mb-4"></div>
-            <div className="h-3 sm:h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-            <div className="h-3 sm:h-4 bg-gray-200 rounded w-1/2"></div>
+          <div key={i} className="bg-white p-4 rounded-lg shadow animate-pulse">
+            <div className="h-48 bg-gray-200 rounded-md mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
           </div>
         ))}
       </div>
@@ -325,23 +326,22 @@ export function ProductGrid() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Filtros - Responsivos */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 sm:mb-6 px-3 sm:px-0">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Buscar productos..."
-            className="pl-9 sm:pl-10 pr-4 py-2 w-full border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
+            className="pl-10 pr-4 py-2 w-full border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-3 sm:px-4 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
+          className="px-4 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
         >
           <option value="">Todas las categorías</option>
           {categories.map(category => (
@@ -351,7 +351,7 @@ export function ProductGrid() {
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-          className="px-3 sm:px-4 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
+          className="px-4 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
         >
           <option value="newest">Más recientes</option>
           <option value="price_asc">Precio: Menor a mayor</option>
@@ -360,302 +360,111 @@ export function ProductGrid() {
         {(searchInput || selectedCategory || sortBy !== 'newest') && (
           <button
             onClick={clearFilters}
-            className="px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center text-sm sm:text-base"
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center"
           >
-            <X className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
-            <span className="hidden sm:inline">Limpiar filtros</span>
-            <span className="sm:hidden">Limpiar</span>
+            <X className="h-5 w-5 mr-1" />
+            Limpiar filtros
           </button>
         )}
       </div>
 
-      {/* Grid de productos - Optimizado para móvil con CSS específico */}
-      <div 
-        className="grid gap-3 sm:gap-6 px-3 sm:px-0"
-        style={{
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-          '@media (min-width: 640px)': {
-            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
-          },
-          '@media (min-width: 1024px)': {
-            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))'
-          }
-        }}
-      >
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((product) => (
           <Link
             key={product.id}
             to={`/product/${product.id}`}
-            className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg group"
-            style={{
-              width: '100%',
-              maxWidth: '48%',
-              '@media (min-width: 640px)': {
-                maxWidth: '100%'
-              }
-            }}
+            className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105"
           >
             <div className="relative">
               <img
                 src={product.images?.[0]}
                 alt={product.name}
-                className="w-full object-cover"
-                style={{
-                  height: '128px',
-                  '@media (min-width: 640px)': {
-                    height: '192px'
-                  }
-                }}
+                className="w-full h-48 object-cover"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.src = 'https://via.placeholder.com/400x300?text=No+Image';
                 }}
               />
-              
-              {/* Badge de colores disponibles */}
               {product.available_colors && product.available_colors.length > 0 && (
-                <div 
-                  className="absolute bg-white rounded-full text-xs font-medium px-2 py-1"
-                  style={{
-                    top: '4px',
-                    right: '4px',
-                    '@media (min-width: 640px)': {
-                      top: '8px',
-                      right: '8px'
-                    }
-                  }}
-                >
+                <div className="absolute top-2 right-2 bg-white rounded-full px-2 py-1 text-xs">
                   {product.available_colors.length} colores
                 </div>
               )}
-
-              {/* Badge de promoción */}
-              {product.promotion && getPromotionLabel(product) && (
-                <div 
-                  className="absolute bg-red-500 text-white rounded-md text-xs font-bold px-2 py-1"
-                  style={{
-                    top: '4px',
-                    left: '4px',
-                    '@media (min-width: 640px)': {
-                      top: '8px',
-                      left: '8px'
-                    }
-                  }}
-                >
-                  {getPromotionLabel(product)}
-                </div>
-              )}
-
-              {/* Botón de favoritos - Posicionado mejor en móvil */}
-              <button
-                onClick={(e) => handleToggleFavorite(product, e)}
-                className={`absolute rounded-full transition-colors ${
-                  favoritesStore.isFavorite(product.id)
-                    ? 'text-red-500 bg-red-50'
-                    : 'text-gray-400 bg-white/80 hover:text-red-500 hover:bg-red-50'
-                }`}
-                style={{
-                  bottom: '8px',
-                  right: '8px',
-                  padding: '6px',
-                  '@media (min-width: 640px)': {
-                    padding: '8px'
-                  }
-                }}
-                title={favoritesStore.isFavorite(product.id) ? 'Quitar de favoritos' : 'Agregar a favoritos'}
-              >
-                <Heart 
-                  className={`transition-transform ${
-                    favoritesStore.isFavorite(product.id) ? 'scale-110' : ''
-                  }`}
-                  style={{
-                    width: '12px',
-                    height: '12px',
-                    '@media (min-width: 640px)': {
-                      width: '16px',
-                      height: '16px'
-                    }
-                  }}
-                  fill={favoritesStore.isFavorite(product.id) ? 'currentColor' : 'none'}
-                />
-              </button>
             </div>
-
-            <div 
-              className="p-2 sm:p-4"
-              style={{
-                minHeight: '120px',
-                '@media (min-width: 640px)': {
-                  minHeight: 'auto'
-                }
-              }}
-            >
-              {/* Nombre del producto - Más compacto en móvil */}
-              <h3 
-                className="font-semibold text-gray-900 mb-1 sm:mb-2 leading-tight"
-                style={{
-                  fontSize: '14px',
-                  lineHeight: '1.2',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  '@media (min-width: 640px)': {
-                    fontSize: '18px',
-                    lineHeight: '1.4'
-                  }
-                }}
-              >
-                {product.name}
-              </h3>
+            <div className="p-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">{product.name}</h3>
               
-              {/* Sistema de calificación con estrellas - Más pequeño en móvil */}
-              <div className="flex items-center mb-1 sm:mb-2">
+              {/* Sistema de calificación con estrellas - ahora clickeable */}
+              <div className="flex items-center mb-2">
                 {renderStars(product.averageRating || 0, product.id)}
                 <span 
-                  className="ml-1 text-gray-500 cursor-pointer"
-                  style={{
-                    fontSize: '10px',
-                    '@media (min-width: 640px)': {
-                      fontSize: '12px'
-                    }
-                  }}
+                  className="ml-1 text-xs text-gray-500 cursor-pointer"
                   onClick={(e) => handleViewReviews(product.id, e)}
                 >
                   ({product.reviewCount || 0})
                 </span>
               </div>
               
-              {/* Descripción - Solo visible en pantallas más grandes */}
-              <p 
-                className="hidden sm:block text-gray-600 mb-4"
-                style={{
-                  fontSize: '14px',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden'
-                }}
-              >
-                {product.description}
-              </p>
+              <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
               
-              {/* Días de envío - Más compacto en móvil */}
-              <div 
-                className="flex items-center text-gray-600 mb-2"
-                style={{
-                  fontSize: '10px',
-                  '@media (min-width: 640px)': {
-                    fontSize: '14px'
-                  }
-                }}
-              >
-                <Truck 
-                  className="mr-1 text-indigo-500"
-                  style={{
-                    width: '12px',
-                    height: '12px',
-                    '@media (min-width: 640px)': {
-                      width: '16px',
-                      height: '16px'
-                    }
-                  }}
-                />
-                <span className="truncate">Llega en {getShippingDays(product)} días</span>
+              {/* Días de envío */}
+              <div className="flex items-center text-sm text-gray-600 mb-2">
+                <Truck className="h-4 w-4 mr-1 text-indigo-500" />
+                <span>Llega en {getShippingDays(product)} días hábiles</span>
               </div>
               
-              {/* Precio y botones - Layout optimizado para móvil */}
-              <div className="space-y-2">
-                {/* Precio */}
+              <div className="flex justify-between items-center">
                 <div className="flex flex-col">
                   {product.promotion ? (
                     <>
-                      <span 
-                        className="text-gray-500 line-through"
-                        style={{
-                          fontSize: '10px',
-                          '@media (min-width: 640px)': {
-                            fontSize: '14px'
-                          }
-                        }}
-                      >
+                      <span className="text-sm text-gray-500 line-through">
                         ${product.price.toFixed(2)}
                       </span>
-                      <span 
-                        className="font-bold text-red-600"
-                        style={{
-                          fontSize: '14px',
-                          '@media (min-width: 640px)': {
-                            fontSize: '18px'
-                          }
-                        }}
-                      >
+                      <span className="text-lg font-bold text-red-600">
                         ${getPromotionalPrice(product)?.toFixed(2) || product.price.toFixed(2)}
                       </span>
+                      {getPromotionLabel(product) && (
+                        <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          <Tag className="h-3 w-3 mr-1" />
+                          {getPromotionLabel(product)}
+                        </div>
+                      )}
                     </>
                   ) : (
-                    <span 
-                      className="font-bold text-gray-900"
-                      style={{
-                        fontSize: '14px',
-                        '@media (min-width: 640px)': {
-                          fontSize: '18px'
-                        }
-                      }}
-                    >
+                    <span className="text-lg font-bold text-gray-900">
                       ${product.price.toFixed(2)}
                     </span>
                   )}
                 </div>
-
-                {/* Botones - Stack vertical en móvil, horizontal en desktop */}
-                <div 
-                  className="flex gap-1 sm:gap-2"
-                  style={{
-                    flexDirection: 'column',
-                    '@media (min-width: 640px)': {
-                      flexDirection: 'row'
-                    }
-                  }}
-                >
-                  <button
-                    onClick={(e) => handleAddToCart(product, e)}
-                    className="flex-1 flex items-center justify-center text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors font-medium"
-                    style={{
-                      padding: '6px 8px',
-                      fontSize: '12px',
-                      '@media (min-width: 640px)': {
-                        padding: '8px 16px',
-                        fontSize: '14px'
-                      }
-                    }}
-                    title="Agregar al carrito"
-                  >
-                    <ShoppingCart 
-                      className="mr-1"
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        '@media (min-width: 640px)': {
-                          width: '16px',
-                          height: '16px'
-                        }
-                      }}
-                    />
-                    <span className="hidden sm:inline">Agregar</span>
-                    <span className="sm:hidden">+</span>
-                  </button>
+                <div className="flex justify-between items-center">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={(e) => handleAddToCart(product, e)}
+                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+                      title="Agregar al carrito"
+                    >
+                      <ShoppingCart className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={(e) => handleToggleFavorite(product, e)}
+                      className={`p-2 rounded-full transition-colors ${
+                        favoritesStore.isFavorite(product.id)
+                          ? 'text-red-500 hover:bg-red-50 bg-red-50'
+                          : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                      }`}
+                      title={favoritesStore.isFavorite(product.id) ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+                    >
+                      <Heart 
+                        className={`h-5 w-5 transition-transform ${
+                          favoritesStore.isFavorite(product.id) ? 'scale-110' : ''
+                        }`}
+                        fill={favoritesStore.isFavorite(product.id) ? 'currentColor' : 'none'}
+                      />
+                    </button>
+                  </div>
                   <button
                     onClick={(e) => handleBuyNow(product, e)}
-                    className="flex-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors font-medium"
-                    style={{
-                      padding: '6px 8px',
-                      fontSize: '12px',
-                      '@media (min-width: 640px)': {
-                        padding: '8px 16px',
-                        fontSize: '14px'
-                      }
-                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
                   >
                     Comprar
                   </button>

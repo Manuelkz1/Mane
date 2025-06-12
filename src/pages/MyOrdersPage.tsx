@@ -13,8 +13,7 @@ import {
   Clock,
   AlertTriangle,
   CreditCard,
-  ExternalLink,
-  CheckCircle
+  ExternalLink
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -38,7 +37,7 @@ export default function MyOrdersPage() {
       setError(null);
 
       // Cargar solo pedidos que NO están pendientes de pago
-      // Excluir pedidos con payment_status = 'payment_pending' o mercadopago pending
+      // Excluir pedidos con payment_status = 'payment_pending' o mercadopago pending sin URL
       const { data, error: fetchError } = await supabase
         .from('orders')
         .select(`
@@ -56,7 +55,8 @@ export default function MyOrdersPage() {
           )
         `)
         .eq('user_id', user.id)
-        .neq('payment_status', 'payment_pending')
+        .not('payment_status', 'eq', 'payment_pending')
+        .not('and', '(payment_method.eq.mercadopago,payment_status.eq.pending)')
         .order('created_at', { ascending: false });
 
       if (fetchError) {
@@ -65,12 +65,7 @@ export default function MyOrdersPage() {
         return;
       }
 
-      // Filter out mercadopago orders with pending payment status on the client side
-      const filteredOrders = (data || []).filter(order => 
-        !(order.payment_method === 'mercadopago' && order.payment_status === 'pending')
-      );
-
-      setOrders(filteredOrders);
+      setOrders(data || []);
     } catch (error) {
       console.error('Error loading orders:', error);
       setError('Error al cargar los pedidos');
@@ -204,68 +199,57 @@ export default function MyOrdersPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3 mb-2">
+            <Package className="w-6 h-6 text-indigo-500" />
+            <h1 className="text-2xl font-bold text-gray-900">Mis Pedidos</h1>
+          </div>
+          <p className="text-gray-600">
+            Aquí puedes ver el estado de todos tus pedidos
+          </p>
+        </div>
+
+        {/* Pending Payments Alert */}
+        {pendingPaymentCount > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
             <div className="flex items-center gap-3">
-              <CheckCircle className="w-6 h-6 text-green-500" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Mis Pedidos Completados</h1>
-                <p className="text-gray-600">
-                  Pedidos procesados y pagados exitosamente
+              <AlertTriangle className="w-5 h-5 text-orange-600" />
+              <div className="flex-1">
+                <h3 className="font-medium text-orange-800">
+                  Tienes {pendingPaymentCount} pago{pendingPaymentCount !== 1 ? 's' : ''} pendiente{pendingPaymentCount !== 1 ? 's' : ''}
+                </h3>
+                <p className="text-sm text-orange-700 mt-1">
+                  Completa tus pagos para que podamos procesar tus pedidos
                 </p>
               </div>
-            </div>
-            
-            {/* Navigation to Pending Payments */}
-            {pendingPaymentCount > 0 && (
               <Link
                 to="/pending-payments"
-                className="flex items-center gap-3 px-4 py-3 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
               >
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-orange-600" />
-                  <div className="text-left">
-                    <div className="font-medium text-orange-800">
-                      {pendingPaymentCount} Pago{pendingPaymentCount !== 1 ? 's' : ''} Pendiente{pendingPaymentCount !== 1 ? 's' : ''}
-                    </div>
-                    <div className="text-sm text-orange-700">
-                      Completar pagos
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-orange-600" />
+                <CreditCard className="w-4 h-4" />
+                Completar Pagos
+                <ExternalLink className="w-4 h-4" />
               </Link>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Orders List */}
         {orders.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No tienes pedidos completados aún
+              No tienes pedidos aún
             </h3>
             <p className="text-gray-500 mb-6">
-              Cuando completes tu primer pedido, aparecerá aquí
+              Cuando hagas tu primer pedido, aparecerá aquí
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                to="/"
-                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Comenzar a comprar
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Link>
-              {pendingPaymentCount > 0 && (
-                <Link
-                  to="/pending-payments"
-                  className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Ver Pagos Pendientes ({pendingPaymentCount})
-                </Link>
-              )}
-            </div>
+            <Link
+              to="/"
+              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Comenzar a comprar
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Link>
           </div>
         ) : (
           <div className="space-y-4">
@@ -309,7 +293,7 @@ export default function MyOrdersPage() {
                         </a>
                       )}
                       <Link
-                        to={`/orders/${order.id}`}
+                        to={`/order/${order.id}`}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                       >
                         Ver Detalles
