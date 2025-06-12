@@ -43,7 +43,7 @@ export interface Order {
     phone: string;
   };
   payment_method: 'cash_on_delivery' | 'mercadopago';
-  payment_status: 'pending' | 'paid' | 'failed';
+  payment_status: 'pending' | 'paid' | 'failed' | 'payment_pending';
   payment_url?: string;
   created_at: string;
   updated_at: string;
