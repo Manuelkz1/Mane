@@ -12,7 +12,8 @@ import {
   Calendar, 
   Clock,
   AlertTriangle,
-  CreditCard
+  CreditCard,
+  ExternalLink
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -36,7 +37,7 @@ export default function MyOrdersPage() {
       setError(null);
 
       // Cargar solo pedidos que NO están pendientes de pago
-      // Excluir pedidos con payment_method = 'mercadopago' y payment_status = 'pending'
+      // Excluir pedidos con payment_status = 'payment_pending' o mercadopago pending sin URL
       const { data, error: fetchError } = await supabase
         .from('orders')
         .select(`
@@ -54,15 +55,20 @@ export default function MyOrdersPage() {
           )
         `)
         .eq('user_id', user.id)
+        .not('payment_status', 'eq', 'payment_pending')
         .not('and', '(payment_method.eq.mercadopago,payment_status.eq.pending)')
         .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Error loading orders:', fetchError);
+        setError('Error al cargar los pedidos');
+        return;
+      }
+
       setOrders(data || []);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading orders:', error);
       setError('Error al cargar los pedidos');
-      toast.error('Error al cargar los pedidos');
     } finally {
       setLoading(false);
     }
@@ -76,130 +82,103 @@ export default function MyOrdersPage() {
         .from('orders')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .eq('payment_method', 'mercadopago')
-        .eq('payment_status', 'pending');
+        .or('payment_status.eq.payment_pending,and(payment_method.eq.mercadopago,payment_status.eq.pending)');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading pending payment count:', error);
+        return;
+      }
+
       setPendingPaymentCount(count || 0);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading pending payment count:', error);
     }
   };
 
-  const getStatusBadgeColor = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'text-yellow-600 bg-yellow-100';
       case 'processing':
-        return 'bg-blue-100 text-blue-800';
+        return 'text-blue-600 bg-blue-100';
       case 'shipped':
-        return 'bg-purple-100 text-purple-800';
+        return 'text-purple-600 bg-purple-100';
       case 'delivered':
-        return 'bg-green-100 text-green-800';
+        return 'text-green-600 bg-green-100';
       case 'cancelled':
-        return 'bg-red-100 text-red-800';
+        return 'text-red-600 bg-red-100';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'text-gray-600 bg-gray-100';
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    const labels = {
-      pending: 'Pendiente',
-      processing: 'Procesando',
-      shipped: 'Enviado',
-      delivered: 'Entregado',
-      cancelled: 'Cancelado'
-    };
-    return labels[status as keyof typeof labels] || status;
-  };
-
-  const getPaymentStatusBadge = (paymentStatus: string, paymentMethod: string) => {
-    if (paymentMethod === 'cash_on_delivery') {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          Contra Entrega
-        </span>
-      );
-    }
-
+  const getPaymentStatusColor = (paymentStatus: string) => {
     switch (paymentStatus) {
-      case 'paid':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            Pagado
-          </span>
-        );
       case 'pending':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-            Pago Pendiente
-          </span>
-        );
+        return 'text-yellow-600 bg-yellow-100';
+      case 'paid':
+        return 'text-green-600 bg-green-100';
       case 'failed':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-            Pago Fallido
-          </span>
-        );
+        return 'text-red-600 bg-red-100';
+      case 'payment_pending':
+        return 'text-orange-600 bg-orange-100';
       default:
-        return null;
+        return 'text-gray-600 bg-gray-100';
     }
   };
 
-  // Función para obtener los días de envío de un producto
-  const getShippingDays = (product: any): string => {
-    if (product.shipping_days) {
-      return product.shipping_days;
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Pendiente';
+      case 'processing':
+        return 'En Proceso';
+      case 'shipped':
+        return 'Enviado';
+      case 'delivered':
+        return 'Entregado';
+      case 'cancelled':
+        return 'Cancelado';
+      default:
+        return status;
     }
-
-    if (product.description) {
-      const match = product.description.match(/\[shipping_days:(\d+)\]/);
-      if (match && match[1]) {
-        return match[1];
-      }
-    }
-
-    return "3-5";
   };
 
-  const getOrderEstimatedDays = (order: Order): string => {
-    if (!order.order_items || order.order_items.length === 0) return "3-5";
-
-    const shippingDaysArray = order.order_items.map(item => getShippingDays(item.products));
-
-    const maxDays = Math.max(...shippingDaysArray.map(days => {
-      if (days.includes('-')) {
-        const parts = days.split('-');
-        return parseInt(parts[1], 10) || parseInt(parts[0], 10);
-      }
-      return parseInt(days, 10) || 5;
-    }));
-
-    const uniqueDays = [...new Set(shippingDaysArray)];
-
-    if (uniqueDays.length === 1) {
-      return uniqueDays[0];
-    } else {
-      return `3-${maxDays}`;
+  const getPaymentStatusText = (paymentStatus: string) => {
+    switch (paymentStatus) {
+      case 'pending':
+        return 'Pago Pendiente';
+      case 'paid':
+        return 'Pagado';
+      case 'failed':
+        return 'Pago Fallido';
+      case 'payment_pending':
+        return 'Esperando Pago';
+      default:
+        return paymentStatus;
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white p-6 rounded-lg shadow-sm">
-                  <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-                  <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              ))}
-            </div>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-gray-600">{error}</p>
+          <button 
+            onClick={loadOrders}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Reintentar
+          </button>
         </div>
       </div>
     );
@@ -209,158 +188,176 @@ export default function MyOrdersPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="flex items-center gap-4 mb-8">
           <Link 
             to="/" 
-            className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
+            className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver al inicio
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            Volver a la tienda
           </Link>
+        </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Package className="h-6 w-6 text-blue-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">Mis Pedidos</h1>
-            </div>
+        <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Package className="w-6 h-6 text-indigo-500" />
+            <h1 className="text-2xl font-bold text-gray-900">Mis Pedidos</h1>
           </div>
+          <p className="text-gray-600">
+            Aquí puedes ver el estado de todos tus pedidos
+          </p>
         </div>
 
         {/* Pending Payments Alert */}
         {pendingPaymentCount > 0 && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start">
-              <AlertTriangle className="h-5 w-5 text-orange-500 mt-0.5 mr-3 flex-shrink-0" />
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-orange-600" />
               <div className="flex-1">
-                <h3 className="text-sm font-medium text-orange-800">
-                  Tienes {pendingPaymentCount} pedido{pendingPaymentCount > 1 ? 's' : ''} pendiente{pendingPaymentCount > 1 ? 's' : ''} de pago
+                <h3 className="font-medium text-orange-800">
+                  Tienes {pendingPaymentCount} pago{pendingPaymentCount !== 1 ? 's' : ''} pendiente{pendingPaymentCount !== 1 ? 's' : ''}
                 </h3>
-                <p className="mt-1 text-sm text-orange-700">
-                  Completar el pago para procesar tu{pendingPaymentCount > 1 ? 's' : ''} pedido{pendingPaymentCount > 1 ? 's' : ''}.
+                <p className="text-sm text-orange-700 mt-1">
+                  Completa tus pagos para que podamos procesar tus pedidos
                 </p>
               </div>
               <Link
                 to="/pending-payments"
-                className="inline-flex items-center px-3 py-1.5 bg-orange-600 text-white text-sm rounded-md hover:bg-orange-700"
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
               >
-                <CreditCard className="h-4 w-4 mr-1" />
-                Ver Pendientes
+                <CreditCard className="w-4 h-4" />
+                Completar Pagos
+                <ExternalLink className="w-4 h-4" />
               </Link>
             </div>
           </div>
         )}
 
         {/* Orders List */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-700">{error}</p>
-          </div>
-        )}
-
         {orders.length === 0 ? (
-          <div className="text-center py-12">
-            <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               No tienes pedidos aún
             </h3>
             <p className="text-gray-500 mb-6">
-              Cuando realices tu primera compra, aparecerá aquí.
+              Cuando hagas tu primer pedido, aparecerá aquí
             </p>
             <Link
               to="/"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              Explorar productos
-              <ChevronRight className="h-4 w-4 ml-2" />
+              Comenzar a comprar
+              <ChevronRight className="w-4 h-4 ml-2" />
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
             {orders.map((order) => (
-              <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
                 <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Pedido #{order.id.slice(0, 8)}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-gray-900">
-                        ${order.total.toLocaleString()}
-                      </p>
-                      <div className="flex gap-2 mt-1">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(order.status)}`}>
-                          {getStatusLabel(order.status)}
-                        </span>
-                        {getPaymentStatusBadge(order.payment_status, order.payment_method)}
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-semibold text-gray-900">
+                          Pedido #{order.id.slice(-8).toUpperCase()}
+                        </h3>
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                          {getStatusText(order.status)}
+                        </div>
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.payment_status)}`}>
+                          {getPaymentStatusText(order.payment_status)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
+                        </div>
+                        <div className="font-medium">
+                          Total: ${order.total.toLocaleString()}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      {order.payment_method === 'mercadopago' && order.payment_url && (
+                        <a
+                          href={order.payment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                        >
+                          <CreditCard className="w-4 h-4" />
+                          Ver Pago
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                      <Link
+                        to={`/order/${order.id}`}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      >
+                        Ver Detalles
+                        <ChevronRight className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Shipping Address */}
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Truck className="w-4 h-4 text-gray-600" />
+                      <span className="font-medium text-gray-900">Dirección de envío</span>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {order.shipping_address.full_name}<br />
+                      {order.shipping_address.address}<br />
+                      {order.shipping_address.city}, {order.shipping_address.postal_code}<br />
+                      {order.shipping_address.country}<br />
+                      Tel: {order.shipping_address.phone}
+                    </p>
                   </div>
 
                   {/* Order Items */}
-                  <div className="mb-4">
-                    <div className="space-y-2">
-                      {order.order_items?.slice(0, 3).map((item, index) => (
-                        <div key={index} className="flex items-center text-sm">
-                          {item.products.images && item.products.images[0] && (
-                            <img
-                              src={item.products.images[0]}
-                              alt={item.products.name}
-                              className="w-10 h-10 rounded object-cover mr-3"
-                            />
-                          )}
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{item.products.name}</p>
-                            <p className="text-gray-500">
-                              Cantidad: {item.quantity}
-                              {item.selected_color && ` • Color: ${item.selected_color}`}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-900">Productos</h4>
+                    {order.order_items?.map((item, index) => (
+                      <div key={index} className="flex items-center gap-4 p-3 border border-gray-200 rounded-lg">
+                        {item.products.images?.[0] && (
+                          <img 
+                            src={item.products.images[0]} 
+                            alt={item.products.name}
+                            className="w-16 h-16 object-cover rounded-lg"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <h5 className="font-medium text-gray-900">{item.products.name}</h5>
+                          {item.products.description && (
+                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                              {item.products.description}
                             </p>
+                          )}
+                          <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                            <span>Cantidad: {item.quantity}</span>
+                            <span>Precio: ${item.price_at_time.toLocaleString()}</span>
+                            {item.selected_color && (
+                              <span>Color: {item.selected_color}</span>
+                            )}
+                            {item.products.shipping_days && (
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                <span>Envío: {item.products.shipping_days} días</span>
+                              </div>
+                            )}
                           </div>
-                          <p className="font-medium text-gray-900">
-                            ${(item.price_at_time * item.quantity).toLocaleString()}
-                          </p>
                         </div>
-                      ))}
-
-                      {order.order_items && order.order_items.length > 3 && (
-                        <p className="text-sm text-gray-500 mt-2">
-                          y {order.order_items.length - 3} producto{order.order_items.length - 3 > 1 ? 's' : ''} más
-                        </p>
-                      )}
-                    </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-gray-900">
+                            ${(item.price_at_time * item.quantity).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-
-                  {/* Shipping Info */}
-                  {(order.status === 'processing' || order.status === 'shipped') && (
-                    <div className="flex items-center text-sm text-gray-600 mb-4">
-                      <Truck className="h-4 w-4 mr-2" />
-                      <span>
-                        Tiempo estimado de entrega: {getOrderEstimatedDays(order)} días hábiles
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Shipping Address */}
-                  <div className="text-sm text-gray-600 mb-4">
-                    <p className="font-medium">Dirección de envío:</p>
-                    <p>{order.shipping_address.full_name}</p>
-                    <p>{order.shipping_address.address}</p>
-                    <p>{order.shipping_address.city}, {order.shipping_address.postal_code}</p>
-                    <p>{order.shipping_address.country}</p>
-                  </div>
-
-                  {/* View Details Button */}
-                  <Link
-                    to={`/order/${order.id}`}
-                    className="inline-flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
-                  >
-                    Ver detalles
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Link>
                 </div>
               </div>
             ))}
