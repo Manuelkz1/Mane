@@ -12,16 +12,16 @@ import {
   RefreshCw,
   CreditCard,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function PendingPaymentsPage() {
   const { user } = useAuthStore();
-  const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retryingPayment, setRetryingPayment] = useState<string | null>(null);
+  const [processingOrder, setProcessingOrder] = useState<string | null>(null);
 
   useEffect(() => {
     loadPendingOrders();
@@ -32,11 +32,9 @@ export default function PendingPaymentsPage() {
 
     try {
       setLoading(true);
-      setError(null);
 
-      // Buscar pedidos con payment_status = 'pending' y payment_method = 'mercadopago'
-      // Estos son pedidos donde el usuario fue redirigido a MercadoPago pero no completó el pago
-      const { data, error: fetchError } = await supabase
+      // Cargar pedidos con payment_pending o mercadopago pending sin URL de pago
+      const { data, error } = await supabase
         .from('orders')
         .select(`
           *,
@@ -47,105 +45,128 @@ export default function PendingPaymentsPage() {
             products (
               name,
               images,
-              shipping_days,
-              description
+              shipping_days
             )
           )
         `)
         .eq('user_id', user.id)
-        .eq('payment_method', 'mercadopago')
-        .eq('payment_status', 'pending')
+        .or('payment_status.eq.payment_pending,and(payment_method.eq.mercadopago,payment_status.eq.pending)')
         .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
-      setPendingOrders(data || []);
-    } catch (error: any) {
+      if (error) {
+        console.error('Error loading pending orders:', error);
+        toast.error('Error al cargar pedidos pendientes');
+        return;
+      }
+
+      setOrders(data || []);
+    } catch (error) {
       console.error('Error loading pending orders:', error);
-      setError('Error al cargar los pedidos pendientes');
-      toast.error('Error al cargar los pedidos pendientes');
+      toast.error('Error al cargar pedidos pendientes');
     } finally {
       setLoading(false);
     }
   };
 
   const retryPayment = async (order: Order) => {
-    if (!order.id) return;
-
-    setRetryingPayment(order.id);
+    setProcessingOrder(order.id);
 
     try {
-      // Crear nueva preferencia de pago para el pedido existente
-      const { data: payment, error: paymentError } = await supabase.functions.invoke('create-payment', {
-        body: {
+      // Recrear preferencia de pago de MercadoPago
+      const response = await fetch('/api/create-payment-preference', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           orderId: order.id,
           items: order.order_items?.map(item => ({
-            product: {
-              name: item.products.name,
-              price: Number(item.price_at_time)
-            },
-            quantity: item.quantity
+            title: item.products.name,
+            quantity: item.quantity,
+            unit_price: item.price_at_time,
           })) || [],
-          total: order.total
-        }
+          payer: {
+            email: order.guest_info?.email || user?.email,
+            name: order.shipping_address.full_name,
+            phone: order.shipping_address.phone,
+          }
+        })
       });
 
-      if (paymentError || !payment?.init_point) {
-        throw new Error(paymentError?.message || 'Error al crear preferencia de pago');
+      if (response.ok) {
+        const { init_point } = await response.json();
+
+        // Actualizar la orden con la nueva URL de pago
+        await supabase
+          .from('orders')
+          .update({ 
+            payment_url: init_point,
+            payment_status: 'pending'
+          })
+          .eq('id', order.id);
+
+        // Redirigir a MercadoPago
+        window.open(init_point, '_blank');
+        toast.success('Redirigiendo a MercadoPago...');
+
+        // Refrescar la lista después de un momento
+        setTimeout(loadPendingOrders, 2000);
+      } else {
+        toast.error('Error al crear el pago');
       }
-
-      // Actualizar la URL de pago en el pedido
-      await supabase
-        .from('orders')
-        .update({ payment_url: payment.init_point })
-        .eq('id', order.id);
-
-      // Redirigir a MercadoPago
-      window.open(payment.init_point, '_blank');
-      toast.success('Redirigiendo a MercadoPago...');
-
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error retrying payment:', error);
-      toast.error('Error al reintentar el pago');
+      toast.error('Error al procesar el pago');
     } finally {
-      setRetryingPayment(null);
+      setProcessingOrder(null);
     }
   };
 
   const cancelOrder = async (orderId: string) => {
+    if (!confirm('¿Estás seguro de que quieres cancelar este pedido?')) {
+      return;
+    }
+
     try {
-      await supabase
+      const { error } = await supabase
         .from('orders')
-        .update({ 
-          status: 'cancelled',
-          payment_status: 'failed',
-          updated_at: new Date().toISOString()
-        })
+        .update({ status: 'cancelled' })
         .eq('id', orderId);
 
+      if (error) {
+        toast.error('Error al cancelar el pedido');
+        return;
+      }
+
       toast.success('Pedido cancelado');
-      loadPendingOrders(); // Recargar la lista
-    } catch (error: any) {
+      loadPendingOrders();
+    } catch (error) {
       console.error('Error cancelling order:', error);
       toast.error('Error al cancelar el pedido');
     }
   };
 
+  const getStatusDisplay = (order: Order) => {
+    if (order.payment_status === 'payment_pending') {
+      return {
+        text: 'Pago Pendiente',
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-100',
+        icon: <Clock className="w-4 h-4" />
+      };
+    }
+    return {
+      text: 'Esperando Pago',
+      color: 'text-yellow-600', 
+      bgColor: 'bg-yellow-100',
+      icon: <AlertTriangle className="w-4 h-4" />
+    };
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white p-6 rounded-lg shadow-sm">
-                  <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-                  <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
       </div>
     );
   }
@@ -154,164 +175,122 @@ export default function PendingPaymentsPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="flex items-center gap-4 mb-8">
           <Link 
-            to="/orders" 
-            className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
+            to="/my-orders" 
+            className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="w-5 h-5 mr-2" />
             Volver a Mis Pedidos
           </Link>
+        </div>
 
-          <div className="flex items-center mb-2">
-            <Clock className="h-6 w-6 text-orange-500 mr-3" />
-            <h1 className="text-2xl font-bold text-gray-900">Pendientes de Pago</h1>
+        <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Clock className="w-6 h-6 text-orange-500" />
+            <h1 className="text-2xl font-bold text-gray-900">Pagos Pendientes</h1>
           </div>
-
           <p className="text-gray-600">
-            Estos pedidos fueron iniciados pero el pago no se completó. 
-            Puedes reintentar el pago o cancelar el pedido.
+            Aquí puedes completar o cancelar los pagos que no se finalizaron
           </p>
         </div>
 
-        {/* Alert */}
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-          <div className="flex items-start">
-            <AlertTriangle className="h-5 w-5 text-orange-500 mt-0.5 mr-3 flex-shrink-0" />
-            <div>
-              <h3 className="text-sm font-medium text-orange-800">
-                ¿Por qué aparecen estos pedidos aquí?
-              </h3>
-              <p className="mt-1 text-sm text-orange-700">
-                Iniciaste el proceso de compra y fuiste redirigido a MercadoPago, 
-                pero el pago no se completó. Los productos siguen reservados por un tiempo limitado.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Orders List */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-700">{error}</p>
-          </div>
-        )}
-
-        {pendingOrders.length === 0 ? (
-          <div className="text-center py-12">
-            <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+        {/* Pending Orders List */}
+        {orders.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No tienes pedidos pendientes de pago
+              No tienes pagos pendientes
             </h3>
             <p className="text-gray-500 mb-6">
-              Todos tus pedidos han sido pagados o cancelados.
+              Todos tus pedidos han sido procesados correctamente
             </p>
             <Link
-              to="/orders"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              to="/my-orders"
+              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
               Ver Mis Pedidos
-              <ChevronRight className="h-4 w-4 ml-2" />
+              <ChevronRight className="w-4 h-4 ml-2" />
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
-            {pendingOrders.map((order) => (
-              <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Pedido #{order.id.slice(0, 8)}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        Iniciado el {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-gray-900">
-                        ${order.total.toLocaleString()}
-                      </p>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                        <Clock className="h-3 w-3 mr-1" />
-                        Pago Pendiente
-                      </span>
-                    </div>
-                  </div>
+            {orders.map((order) => {
+              const status = getStatusDisplay(order);
 
-                  {/* Order Items */}
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Productos:</h4>
-                    <div className="space-y-2">
-                      {order.order_items?.map((item, index) => (
-                        <div key={index} className="flex items-center text-sm text-gray-600">
-                          <span className="font-medium">{item.quantity}x</span>
-                          <span className="ml-2">{item.products.name}</span>
-                          {item.selected_color && (
-                            <span className="ml-2 text-gray-500">({item.selected_color})</span>
-                          )}
-                          <span className="ml-auto font-medium">
-                            ${(item.price_at_time * item.quantity).toLocaleString()}
-                          </span>
+              return (
+                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-gray-900">
+                            Pedido #{order.id.slice(-8).toUpperCase()}
+                          </h3>
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${status.bgColor} ${status.color}`}>
+                            {status.icon}
+                            {status.text}
+                          </div>
                         </div>
-                      ))}
+                      </div>
+
+                      <div className="text-sm text-gray-600 mb-4">
+                        <p>Fecha: {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}</p>
+                        <p>Total: ${order.total.toLocaleString()}</p>
+                        <p>Dirección: {order.shipping_address.address}, {order.shipping_address.city}</p>
+                      </div>
+
+                      {/* Products */}
+                      <div className="space-y-2">
+                        {order.order_items?.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
+                            {item.products.images?.[0] && (
+                              <img 
+                                src={item.products.images[0]} 
+                                alt={item.products.name}
+                                className="w-12 h-12 object-cover rounded"
+                              />
+                            )}
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{item.products.name}</p>
+                              <p className="text-xs text-gray-600">
+                                Cantidad: {item.quantity} × ${item.price_at_time.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      onClick={() => retryPayment(order)}
-                      disabled={retryingPayment === order.id}
-                      className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex-1"
-                    >
-                      {retryingPayment === order.id ? (
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <CreditCard className="h-4 w-4 mr-2" />
-                      )}
-                      {retryingPayment === order.id ? 'Procesando...' : 'Completar Pago'}
-                    </button>
-
-                    {order.payment_url && (
-                      <a
-                        href={order.payment_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex-1"
+                    {/* Actions */}
+                    <div className="flex flex-col gap-2 lg:w-48">
+                      <button
+                        onClick={() => retryPayment(order)}
+                        disabled={processingOrder === order.id}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Ir a MercadoPago
-                      </a>
-                    )}
+                        {processingOrder === order.id ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CreditCard className="w-4 h-4" />
+                        )}
+                        Completar Pago
+                      </button>
 
-                    <button
-                      onClick={() => {
-                        if (confirm('¿Estás seguro de que quieres cancelar este pedido?')) {
-                          cancelOrder(order.id);
-                        }
-                      }}
-                      className="flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex-1"
-                    >
-                      Cancelar Pedido
-                    </button>
+                      <button
+                        onClick={() => cancelOrder(order.id)}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancelar Pedido
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
-
-        {/* Refresh Button */}
-        <div className="mt-8 text-center">
-          <button
-            onClick={loadPendingOrders}
-            className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar Lista
-          </button>
-        </div>
       </div>
     </div>
   );
