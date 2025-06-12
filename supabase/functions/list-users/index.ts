@@ -1,13 +1,10 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.39.7";
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Add detailed logging for debugging
   console.log('Request received:', new Date().toISOString());
   console.log('Request method:', req.method);
@@ -22,6 +19,53 @@ serve(async (req) => {
   }
 
   try {
+    // Validate environment variables first
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+    if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
+      console.error('Missing environment variables:', {
+        SUPABASE_URL: !!supabaseUrl,
+        SUPABASE_SERVICE_ROLE_KEY: !!supabaseServiceRoleKey,
+        SUPABASE_ANON_KEY: !!supabaseAnonKey
+      });
+      
+      return new Response(
+        JSON.stringify({ 
+          error: 'Server configuration error: Missing required environment variables',
+          details: 'SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_ANON_KEY must be configured'
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+
+    // Validate URL format
+    try {
+      new URL(supabaseUrl);
+    } catch {
+      console.error('Invalid SUPABASE_URL format:', supabaseUrl);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Server configuration error: Invalid SUPABASE_URL format',
+          details: 'SUPABASE_URL must be a valid URL'
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+
     // Get the authorization header
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
@@ -37,10 +81,13 @@ serve(async (req) => {
       );
     }
 
+    // Dynamic import to ensure environment variables are validated first
+    const { createClient } = await import('npm:@supabase/supabase-js@2.39.7');
+
     // Initialize Supabase admin client
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      supabaseUrl,
+      supabaseServiceRoleKey,
       {
         auth: {
           autoRefreshToken: false,
@@ -51,8 +98,8 @@ serve(async (req) => {
 
     // Initialize client with user's JWT
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      supabaseUrl,
+      supabaseAnonKey,
       {
         auth: {
           autoRefreshToken: false,
@@ -69,6 +116,7 @@ serve(async (req) => {
     // Verify the user is an admin
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError) {
+      console.error('Authentication error:', authError);
       return new Response(
         JSON.stringify({ error: 'Authentication failed', details: authError.message }),
         {
@@ -102,6 +150,7 @@ serve(async (req) => {
       .single();
 
     if (userError) {
+      console.error('User role verification error:', userError);
       return new Response(
         JSON.stringify({ error: 'Failed to verify user role', details: userError.message }),
         {
@@ -263,6 +312,7 @@ serve(async (req) => {
     });
 
     if (authUsersError) {
+      console.error('Auth users fetch error:', authUsersError);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch auth users', details: authUsersError.message }),
         {
@@ -309,6 +359,7 @@ serve(async (req) => {
       .order('created_at', { ascending: false });
 
     if (dbError) {
+      console.error('Database users fetch error:', dbError);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch database users', details: dbError.message }),
         {
