@@ -325,31 +325,6 @@ export default function UnifiedOrdersPage() {
         {/* Content Sections */}
         {activeTab === 'completed' ? (
           <div className="space-y-6">
-            {/* Enhanced Header for Completed Orders */}
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="bg-white bg-opacity-20 rounded-full p-3">
-                    <CheckCircle className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold">Pedidos Completados</h2>
-                    <p className="text-green-100">
-                      {completedOrders.length} pedido{completedOrders.length !== 1 ? 's' : ''} procesado{completedOrders.length !== 1 ? 's' : ''} exitosamente
-                    </p>
-                  </div>
-                </div>
-                {completedOrders.length > 0 && (
-                  <div className="text-right">
-                    <div className="text-3xl font-bold">
-                      ${completedOrders.reduce((total, order) => total + order.total, 0).toLocaleString()}
-                    </div>
-                    <div className="text-green-100 text-sm">Total invertido</div>
-                  </div>
-                )}
-              </div>
-            </div>
-
             {completedOrders.length === 0 ? (
               <div className="bg-white rounded-xl shadow-lg p-12 text-center">
                 <div className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
