@@ -11,6 +11,7 @@ import GuestCheckout from './components/GuestCheckout';
 import { AdminPanel } from './components/AdminPanel';
 import OrderDetails from './components/OrderDetails';
 import MyOrdersPage from './pages/MyOrdersPage';
+import UnifiedOrdersPage from './pages/UnifiedOrdersPage';
 import MyFavoritesPage from './pages/MyFavoritesPage';
 import PendingPaymentsPage from './pages/PendingPaymentsPage';
 import { PaymentStatus } from './components/PaymentStatus';
@@ -78,7 +79,12 @@ function App() {
         <Route path="/checkout" element={<GuestCheckout />} />
         <Route path="/my-orders" element={
           <ProtectedRoute>
-            <MyOrdersPage />
+            <UnifiedOrdersPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/orders" element={
+          <ProtectedRoute>
+            <UnifiedOrdersPage />
           </ProtectedRoute>
         } />
         <Route path="/my-favorites" element={
@@ -89,6 +95,11 @@ function App() {
         <Route path="/orders/:id" element={
           <ProtectedRoute>
             <OrderDetails />
+          </ProtectedRoute>
+        } />
+        <Route path="/pending-payments" element={
+          <ProtectedRoute>
+            <PendingPaymentsPage />
           </ProtectedRoute>
         } />
         <Route path="/admin/*" element={
