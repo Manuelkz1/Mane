@@ -55,8 +55,7 @@ export default function MyOrdersPage() {
           )
         `)
         .eq('user_id', user.id)
-        .not('payment_status', 'eq', 'payment_pending')
-        .not('and', '(payment_method.eq.mercadopago,payment_status.eq.pending)')
+        .not.or('payment_status.eq.payment_pending', 'and(payment_method.eq.mercadopago,payment_status.eq.pending)')
         .order('created_at', { ascending: false });
 
       if (fetchError) {
