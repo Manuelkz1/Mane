@@ -37,7 +37,7 @@ export default function MyOrdersPage() {
       setError(null);
 
       // Cargar solo pedidos que NO están pendientes de pago
-      // Excluir pedidos con payment_status = 'payment_pending' o mercadopago pending sin URL
+      // Excluir pedidos con payment_status = 'payment_pending' o mercadopago pending
       const { data, error: fetchError } = await supabase
         .from('orders')
         .select(`
@@ -55,8 +55,7 @@ export default function MyOrdersPage() {
           )
         `)
         .eq('user_id', user.id)
-        .not('payment_status', 'eq', 'payment_pending')
-        .not('and', '(payment_method.eq.mercadopago,payment_status.eq.pending)')
+        .neq('payment_status', 'payment_pending')
         .order('created_at', { ascending: false });
 
       if (fetchError) {
@@ -65,7 +64,12 @@ export default function MyOrdersPage() {
         return;
       }
 
-      setOrders(data || []);
+      // Filter out mercadopago orders with pending payment status on the client side
+      const filteredOrders = (data || []).filter(order => 
+        !(order.payment_method === 'mercadopago' && order.payment_status === 'pending')
+      );
+
+      setOrders(filteredOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
       setError('Error al cargar los pedidos');
