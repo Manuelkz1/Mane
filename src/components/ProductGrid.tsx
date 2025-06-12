@@ -187,14 +187,14 @@ export function ProductGrid() {
 
   const handleBuyNow = (product: Product, event: React.MouseEvent) => {
     event.preventDefault();
-    navigate(`/product/${product.id}`);
+    window.location.href = `/product/${product.id}`;
   };
 
   // Función para navegar a las reseñas del producto
   const handleViewReviews = (productId: string, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    navigate(`/product/${productId}#reviews`);
+    window.location.href = `/product/${productId}#reviews`;
   };
 
   // Función para manejar favoritos
@@ -296,7 +296,7 @@ export function ProductGrid() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 p-3 sm:p-0">
         {[...Array(6)].map((_, i) => (
           <div key={i} className="bg-white p-3 sm:p-4 rounded-lg shadow animate-pulse">
             <div className="h-32 sm:h-48 bg-gray-200 rounded-md mb-3 sm:mb-4"></div>
@@ -327,7 +327,7 @@ export function ProductGrid() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Filtros - Responsivos */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 sm:mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 sm:mb-6 px-3 sm:px-0">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />
           <input
@@ -369,19 +369,43 @@ export function ProductGrid() {
         )}
       </div>
 
-      {/* Grid de productos - Optimizado para móvil */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+      {/* Grid de productos - Optimizado para móvil con CSS específico */}
+      <div 
+        className="grid gap-3 sm:gap-6 px-3 sm:px-0"
+        style={{
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          '@media (min-width: 640px)': {
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
+          },
+          '@media (min-width: 1024px)': {
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))'
+          }
+        }}
+      >
         {products.map((product) => (
           <Link
             key={product.id}
             to={`/product/${product.id}`}
-            className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105 group"
+            className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg group"
+            style={{
+              width: '100%',
+              maxWidth: '48%',
+              '@media (min-width: 640px)': {
+                maxWidth: '100%'
+              }
+            }}
           >
             <div className="relative">
               <img
                 src={product.images?.[0]}
                 alt={product.name}
-                className="w-full h-32 sm:h-48 object-cover"
+                className="w-full object-cover"
+                style={{
+                  height: '128px',
+                  '@media (min-width: 640px)': {
+                    height: '192px'
+                  }
+                }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.src = 'https://via.placeholder.com/400x300?text=No+Image';
@@ -390,14 +414,34 @@ export function ProductGrid() {
               
               {/* Badge de colores disponibles */}
               {product.available_colors && product.available_colors.length > 0 && (
-                <div className="absolute top-1 sm:top-2 right-1 sm:right-2 bg-white rounded-full px-2 py-1 text-xs">
+                <div 
+                  className="absolute bg-white rounded-full text-xs font-medium px-2 py-1"
+                  style={{
+                    top: '4px',
+                    right: '4px',
+                    '@media (min-width: 640px)': {
+                      top: '8px',
+                      right: '8px'
+                    }
+                  }}
+                >
                   {product.available_colors.length} colores
                 </div>
               )}
 
               {/* Badge de promoción */}
               {product.promotion && getPromotionLabel(product) && (
-                <div className="absolute top-1 sm:top-2 left-1 sm:left-2 bg-red-500 text-white px-2 py-1 rounded-md text-xs font-bold">
+                <div 
+                  className="absolute bg-red-500 text-white rounded-md text-xs font-bold px-2 py-1"
+                  style={{
+                    top: '4px',
+                    left: '4px',
+                    '@media (min-width: 640px)': {
+                      top: '8px',
+                      left: '8px'
+                    }
+                  }}
+                >
                   {getPromotionLabel(product)}
                 </div>
               )}
@@ -405,25 +449,63 @@ export function ProductGrid() {
               {/* Botón de favoritos - Posicionado mejor en móvil */}
               <button
                 onClick={(e) => handleToggleFavorite(product, e)}
-                className={`absolute bottom-2 right-2 p-1.5 sm:p-2 rounded-full transition-colors ${
+                className={`absolute rounded-full transition-colors ${
                   favoritesStore.isFavorite(product.id)
                     ? 'text-red-500 bg-red-50'
                     : 'text-gray-400 bg-white/80 hover:text-red-500 hover:bg-red-50'
                 }`}
+                style={{
+                  bottom: '8px',
+                  right: '8px',
+                  padding: '6px',
+                  '@media (min-width: 640px)': {
+                    padding: '8px'
+                  }
+                }}
                 title={favoritesStore.isFavorite(product.id) ? 'Quitar de favoritos' : 'Agregar a favoritos'}
               >
                 <Heart 
-                  className={`h-3 w-3 sm:h-4 sm:w-4 transition-transform ${
+                  className={`transition-transform ${
                     favoritesStore.isFavorite(product.id) ? 'scale-110' : ''
                   }`}
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    '@media (min-width: 640px)': {
+                      width: '16px',
+                      height: '16px'
+                    }
+                  }}
                   fill={favoritesStore.isFavorite(product.id) ? 'currentColor' : 'none'}
                 />
               </button>
             </div>
 
-            <div className="p-2 sm:p-4">
+            <div 
+              className="p-2 sm:p-4"
+              style={{
+                minHeight: '120px',
+                '@media (min-width: 640px)': {
+                  minHeight: 'auto'
+                }
+              }}
+            >
               {/* Nombre del producto - Más compacto en móvil */}
-              <h3 className="text-sm sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2 line-clamp-2 leading-tight">
+              <h3 
+                className="font-semibold text-gray-900 mb-1 sm:mb-2 leading-tight"
+                style={{
+                  fontSize: '14px',
+                  lineHeight: '1.2',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  '@media (min-width: 640px)': {
+                    fontSize: '18px',
+                    lineHeight: '1.4'
+                  }
+                }}
+              >
                 {product.name}
               </h3>
               
@@ -431,7 +513,13 @@ export function ProductGrid() {
               <div className="flex items-center mb-1 sm:mb-2">
                 {renderStars(product.averageRating || 0, product.id)}
                 <span 
-                  className="ml-1 text-xs text-gray-500 cursor-pointer"
+                  className="ml-1 text-gray-500 cursor-pointer"
+                  style={{
+                    fontSize: '10px',
+                    '@media (min-width: 640px)': {
+                      fontSize: '12px'
+                    }
+                  }}
                   onClick={(e) => handleViewReviews(product.id, e)}
                 >
                   ({product.reviewCount || 0})
@@ -439,11 +527,40 @@ export function ProductGrid() {
               </div>
               
               {/* Descripción - Solo visible en pantallas más grandes */}
-              <p className="hidden sm:block text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
+              <p 
+                className="hidden sm:block text-gray-600 mb-4"
+                style={{
+                  fontSize: '14px',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden'
+                }}
+              >
+                {product.description}
+              </p>
               
               {/* Días de envío - Más compacto en móvil */}
-              <div className="flex items-center text-xs sm:text-sm text-gray-600 mb-2">
-                <Truck className="h-3 w-3 sm:h-4 sm:w-4 mr-1 text-indigo-500" />
+              <div 
+                className="flex items-center text-gray-600 mb-2"
+                style={{
+                  fontSize: '10px',
+                  '@media (min-width: 640px)': {
+                    fontSize: '14px'
+                  }
+                }}
+              >
+                <Truck 
+                  className="mr-1 text-indigo-500"
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    '@media (min-width: 640px)': {
+                      width: '16px',
+                      height: '16px'
+                    }
+                  }}
+                />
                 <span className="truncate">Llega en {getShippingDays(product)} días</span>
               </div>
               
@@ -453,34 +570,92 @@ export function ProductGrid() {
                 <div className="flex flex-col">
                   {product.promotion ? (
                     <>
-                      <span className="text-xs sm:text-sm text-gray-500 line-through">
+                      <span 
+                        className="text-gray-500 line-through"
+                        style={{
+                          fontSize: '10px',
+                          '@media (min-width: 640px)': {
+                            fontSize: '14px'
+                          }
+                        }}
+                      >
                         ${product.price.toFixed(2)}
                       </span>
-                      <span className="text-sm sm:text-lg font-bold text-red-600">
+                      <span 
+                        className="font-bold text-red-600"
+                        style={{
+                          fontSize: '14px',
+                          '@media (min-width: 640px)': {
+                            fontSize: '18px'
+                          }
+                        }}
+                      >
                         ${getPromotionalPrice(product)?.toFixed(2) || product.price.toFixed(2)}
                       </span>
                     </>
                   ) : (
-                    <span className="text-sm sm:text-lg font-bold text-gray-900">
+                    <span 
+                      className="font-bold text-gray-900"
+                      style={{
+                        fontSize: '14px',
+                        '@media (min-width: 640px)': {
+                          fontSize: '18px'
+                        }
+                      }}
+                    >
                       ${product.price.toFixed(2)}
                     </span>
                   )}
                 </div>
 
                 {/* Botones - Stack vertical en móvil, horizontal en desktop */}
-                <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                <div 
+                  className="flex gap-1 sm:gap-2"
+                  style={{
+                    flexDirection: 'column',
+                    '@media (min-width: 640px)': {
+                      flexDirection: 'row'
+                    }
+                  }}
+                >
                   <button
                     onClick={(e) => handleAddToCart(product, e)}
-                    className="flex-1 flex items-center justify-center p-1.5 sm:p-2 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors text-xs sm:text-sm"
+                    className="flex-1 flex items-center justify-center text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors font-medium"
+                    style={{
+                      padding: '6px 8px',
+                      fontSize: '12px',
+                      '@media (min-width: 640px)': {
+                        padding: '8px 16px',
+                        fontSize: '14px'
+                      }
+                    }}
                     title="Agregar al carrito"
                   >
-                    <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    <ShoppingCart 
+                      className="mr-1"
+                      style={{
+                        width: '12px',
+                        height: '12px',
+                        '@media (min-width: 640px)': {
+                          width: '16px',
+                          height: '16px'
+                        }
+                      }}
+                    />
                     <span className="hidden sm:inline">Agregar</span>
                     <span className="sm:hidden">+</span>
                   </button>
                   <button
                     onClick={(e) => handleBuyNow(product, e)}
-                    className="flex-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-xs sm:text-sm font-medium"
+                    className="flex-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors font-medium"
+                    style={{
+                      padding: '6px 8px',
+                      fontSize: '12px',
+                      '@media (min-width: 640px)': {
+                        padding: '8px 16px',
+                        fontSize: '14px'
+                      }
+                    }}
                   >
                     Comprar
                   </button>
