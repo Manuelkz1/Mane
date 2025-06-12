@@ -82,12 +82,12 @@ export function GuestCheckout() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (loading) {
       console.log('Formulario ya en proceso, ignorando envío adicional');
       return;
     }
-    
+
     if (!cartStore.items.length) {
       toast.error("El carrito está vacío");
       return;
@@ -99,15 +99,15 @@ export function GuestCheckout() {
     }
 
     setLoading(true);
-    
+
     try {
       console.log('Iniciando proceso de checkout');
-      
-      // Crear orden
+
+      // Crear pedido en la base de datos
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
-          user_id: user?.id || null, // Asociar al usuario si está logueado
+          user_id: user?.id || null,
           shipping_address: {
             full_name: formData.fullName,
             address: formData.address,
@@ -125,13 +125,13 @@ export function GuestCheckout() {
           total: cartStore.total,
           status: 'pending',
           payment_status: 'pending',
-          is_guest: !user // Solo es guest si NO hay usuario logueado
+          is_guest: !user
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
-      
+
       console.log('Orden creada con ID:', order.id);
 
       // Crear items del pedido
@@ -148,13 +148,13 @@ export function GuestCheckout() {
         .insert(orderItems);
 
       if (itemsError) throw itemsError;
-      
+
       console.log('Items del pedido creados correctamente');
 
       if (formData.paymentMethod === 'mercadopago') {
         try {
           console.log('Iniciando proceso de pago con Mercado Pago');
-          
+
           const { data: payment, error: paymentError } = await supabase.functions.invoke('create-payment', {
             body: {
               orderId: order.id,
@@ -172,30 +172,44 @@ export function GuestCheckout() {
           if (paymentError || !payment?.init_point) {
             throw new Error(paymentError?.message || 'Error al crear preferencia de pago');
           }
-          
+
+          // Actualizar el pedido con la URL de pago
+          await supabase
+            .from('orders')
+            .update({ payment_url: payment.init_point })
+            .eq('id', order.id);
+
           console.log('Preferencia de pago creada:', payment);
+
+          // Limpiar carrito ANTES de redireccionar
+          cartStore.clearCart();
+          sessionStorage.removeItem("checkout-form");
+
           redirectToMercadoPago(payment.init_point);
           return;
-          
+
         } catch (mpError) {
           console.error('Error en proceso de Mercado Pago:', mpError);
           toast.error('Error al conectar con MercadoPago. Intenta nuevamente.');
-          
+
           try {
             await supabase
               .from('orders')
-              .delete()
+              .update({ 
+                payment_status: 'failed',
+                status: 'cancelled'
+              })
               .eq('id', order.id);
-          } catch (deleteError) {
-            console.error('Error al eliminar orden huérfana:', deleteError);
+          } catch (updateError) {
+            console.error('Error al actualizar orden fallida:', updateError);
           }
-          
+
           setLoading(false);
           return;
         }
       } else { // Pago contra entrega
         console.log('Procesando pago contra entrega');
-        
+
         await supabase
           .from('orders')
           .update({ 
@@ -206,7 +220,7 @@ export function GuestCheckout() {
 
         cartStore.clearCart();
         sessionStorage.removeItem("checkout-form");
-        
+
         toast.success('Pedido realizado con éxito');
         navigate(`/pago?status=pending_cod&order_id=${order.id}`);
         return;
