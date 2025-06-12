@@ -12,6 +12,7 @@ import { AdminPanel } from './components/AdminPanel';
 import OrderDetails from './components/OrderDetails';
 import MyOrdersPage from './pages/MyOrdersPage';
 import MyFavoritesPage from './pages/MyFavoritesPage';
+import PendingPaymentsPage from './pages/PendingPaymentsPage';
 import { PaymentStatus } from './components/PaymentStatus';
 
 // Componente para manejar el callback de autenticación
